@@ -1,0 +1,44 @@
+---
+title: "Analiza ścieżek"
+output: html_notebook
+---
+
+Setup i pakiety
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+library(tidyverse)
+library(data.table)
+library(here)
+library(anytime)
+```
+
+
+Wgrywamy dane pobrane z BigQuery
+
+```{r}
+campaigns_dict <- fread(here::here('DATA', 'campaigns_dict.csv')) %>% select(campaign_id = id, campaign = name)
+devices_dict <- fread(here::here('DATA', 'devices_dict.csv')) %>% select(device_id = id, device = name)
+clusters_dict <- fread(here::here('DATA', 'clusters_dict.csv')) %>% select(cluster_id = id, cluster)
+geo_dict <- fread(here::here('DATA', 'geo_dict.csv')) %>% select(city_id = cityId, city, country)
+referrers_dict <- fread(here::here('DATA', 'referrers_dict.csv')) %>% select(referrer_type_id = id, referrer_type = ReferrerType)
+contact_type_dict <- data.frame(contact_type_id=1:3, contact_type=c('trackingpoint', 'click', 'impression'))
+
+files <- list.files(here::here('DATA', 'PATHS'), full.names = T)
+dfs <- lapply(files, data.table::fread)
+paths <- rbindlist( dfs ) %>%
+  select(EID, ts, contact_type_id = contact_type, campaign_id = CampaignId, referrer_type_id = referrer_type, device_id = DeviceTypeId, city_id = city, cluster_id = cluster, conversion)
+```
+
+Dołączamy słowniki i ogarniamy daty i godziny
+
+```{r}
+df <- paths %>%
+  mutate(date = anytime::anydate(ts), time = strftime(ts, format="%H:%M:%S")) %>%
+  left_join(campaigns_dict, by = 'campaign_id') %>%
+  left_join(devices_dict, by = 'device_id') %>%
+  left_join(clusters_dict, by = 'cluster_id', name='cluster') %>%
+  left_join(referrers_dict, by = 'referrer_type_id') %>%
+  left_join(geo_dict, by = 'city_id') %>%
+  left_join(contact_type_dict, by = 'contact_type_id') %>%
+  select(EID, date, time, contact_type, campaign, referrer_type, country, city, device, cluster, conversion)
+```
+
