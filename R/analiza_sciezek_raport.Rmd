@@ -110,7 +110,6 @@ n_conv_r %>%
 
 ## ANALIZA KLASTRÓW
 
-<<<<<<< HEAD
 ```{r}
 df_clust <- df %>% select(EID, date, time, cluster)
   df_clust$lvl1 = str_split(df_clust$cluster, ' \\| ',  simplify = T)[,1]
@@ -130,4 +129,4 @@ df_clust%>%
 
 =======
 ### level 1
->>>>>>> bf61c79e822893a17e36c2a94faa43dc6aa1d04f
+
