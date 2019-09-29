@@ -1,5 +1,5 @@
 ---
-title: "Analiza ścieżek"
+title: "Analiza ścieżek - przygotowanie"
 output: html_notebook
 ---
 
@@ -41,4 +41,11 @@ df <- paths %>%
   left_join(contact_type_dict, by = 'contact_type_id') %>%
   select(EID, date, time, contact_type, campaign, referrer_type, country, city, device, cluster, conversion)
 ```
+
+Zapisujemy przygotowany plik na dysku
+
+```{r}
+fwrite(df, here::here('DATA', 'CLEAN', 'cocacola.csv'))
+```
+
 
