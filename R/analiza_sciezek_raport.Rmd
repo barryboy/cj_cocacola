@@ -1,0 +1,113 @@
+---
+title: "Analiza ścieżek - raport"
+output:
+  html_document:
+    df_print: paged
+---
+
+Setup i pakiety
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+library(tidyverse)
+library(data.table)
+library(here)
+library(anytime)
+library(ggplot2)
+library(scales)
+```
+
+
+Wgrywamy dane:
+```{r}
+df <- data.table::fread(here::here('DATA', 'CLEAN', 'cocacola.csv'))
+```
+
+Znajdujemy ścieżki konwertujące R i K oraz niekonwertujące 0:
+
+```{r}
+EID_R <- df %>%
+  filter(conversion == 1) %>%
+  distinct(EID)
+
+EID_K <- df %>%
+  filter(conversion == 2) %>%
+  distinct(EID)
+
+EID_0 <- df %>%
+  filter(!EID %in% EID_R$EID, !EID %in% EID_K$EID) %>%
+  distinct(EID)
+```
+
+## HISTOGRAMY
+
+Histogramy długości ścieżek
+```{r}
+path_lengths <- df %>%
+  group_by(EID) %>%
+  summarize(N = n()) %>%
+  ungroup()
+```
+```{r}
+path_lengths %>%
+  filter(EID %in% EID_0$EID, N<1000) %>%
+  ggplot(aes(x=N)) +
+  geom_histogram(alpha = .75, bins = 25) +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x), labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle('Histogram długości ścieżek niekonwertujących') +
+  xlab('N') + ylab('log(count)') +
+  theme_minimal()
+```
+
+
+
+```{r}
+path_lengths %>%
+  filter(EID %in% EID_R$EID, N<1000) %>%
+  left_join(filter(path_lengths, EID %in% EID_K$EID, N < 1000), by='EID', suffix = c('_R', '_K')) %>%
+  rename(REJESTRACJE = N_R, KODY = N_K) %>%
+  gather('KONWERSJA', 'N', -EID) %>%
+  filter(!is.na(N)) %>%
+  ggplot(aes(x=N, fill = KONWERSJA)) +
+  geom_histogram(alpha = .75, bins = 25, position = 'dodge') +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle('Histogram długości ścieżek konwertujących') +
+  xlab('N') + ylab('log(count)') +
+  theme_minimal()
+```
+
+
+```{r}
+n_conv_r <- df %>%
+  filter(EID %in% EID_R$EID) %>%
+  group_by(EID) %>%
+  summarise(N_CONV = sum(ifelse(conversion == 1,1,0))) %>%
+  ungroup() %>%
+  group_by(N_CONV) %>%
+  summarise(REJESTRACJE = n()) %>%
+  ungroup()
+
+n_conv_k <- df %>%
+  filter(EID %in% EID_K$EID) %>%
+  group_by(EID) %>%
+  summarise(N_CONV = sum(ifelse(conversion == 1,2,0))) %>%
+  ungroup() %>%
+  group_by(N_CONV) %>%
+  summarise(KODY = n()) %>%
+  ungroup()
+
+n_conv_r %>%
+  full_join(n_conv_k, by='N_CONV') %>%
+  arrange(N_CONV) %>%
+  gather('KONWERSJA', 'COUNT', -N_CONV) %>%
+  replace_na(list(COUNT = 0)) %>%
+  filter(N_CONV <=50) %>%
+  ggplot(aes(x = N_CONV, y=COUNT+1, fill=KONWERSJA)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle('Wielokrotne konwersje') +
+  xlab('liczba kolejnych kowersji na ścieżce') + ylab('log(LICZBA WYSTĄPIEŃ)') +
+  theme_minimal()
+```
+
+## ANALIZA KLASTRÓW
+
+### level 1
